@@ -245,7 +245,7 @@ Pi's built-in coding tools are lowercase: \`read\`, \`write\`, \`edit\`, \`bash\
 This extension registers tool_call gates equivalent to superlite's Claude Code hooks:
 - **block-coordinator-edits**: during an active run, the coordinator cannot write project code (edit/write/bash-redirect to .kt/.java/.py/.ts/etc). Route edits to fixer agents.
 - **block-unsafe-kill**: pkill/killall/taskkill /IM are blocked. Kill by PID from the run's process list.
-- **rewrite-test-runs**: raw pytest/npm test/go test/cargo test commands are rewritten to background \`sl run_tests --full --wait\`.
+- **rewrite-test-runs**: raw pytest/npm test/go test/cargo test commands are rewritten to background \`sl run_tests --full\`.
 
 For subagent dispatch, if a subagent tool is available, use it for superlite's agent dispatches. If not, do the work in this session (inline mode) or explain the missing capability.`;
 }
