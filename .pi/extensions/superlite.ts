@@ -174,11 +174,11 @@ export default function superlitePiExtension(pi: ExtensionAPI) {
 
         for (const pat of TEST_COMMAND_PATTERNS) {
             if (pat.test(cmd)) {
-                const slPath = resolve(skillsDir, "subagent-driven-development", "scripts", "sl");
+                const slPath = `bash "${resolve(skillsDir, "subagent-driven-development", "scripts", "sl")}"`;
                 return {
                     input: {
                         ...input,
-                        command: `${cmd} & bash "${slPath}" run_tests --full --wait`,
+                        command: `${slPath} run_tests --full &`,
                     },
                 };
             }
