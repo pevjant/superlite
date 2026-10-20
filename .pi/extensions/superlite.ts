@@ -33,6 +33,14 @@ function buildHookInput(event: ToolCallEvent, ctx: ExtensionContext): string {
     if (typeof input.path === "string") toolInput.file_path = input.path;
     if (typeof input.file_path === "string") toolInput.file_path = input.file_path;
     if (typeof input.notebook_path === "string") toolInput.notebook_path = input.notebook_path;
+    // omp tool-event-input.ts:73-82 — 다중 파일 edit는 paths 배열로 제공
+    if (Array.isArray(input.paths)) {
+        toolInput.paths = input.paths.filter((p): p is string => typeof p === "string");
+        // 첫 번째 경로를 file_path로도 전달 (원본 hook이 file_path를 확인)
+        if (toolInput.paths.length > 0 && !toolInput.file_path) {
+            toolInput.file_path = toolInput.paths[0];
+        }
+    }
 
     // 서브에이전트면 agent_id 필드 존재 (원본 hooks가 이걸 확인)
     const isSub = ctx.agent?.kind === "sub";
