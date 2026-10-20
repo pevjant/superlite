@@ -71,14 +71,16 @@ export default function superlitePiExtension(pi: ExtensionAPI) {
         // Remaining gates are coordinator-only — workers pass through
         if (ctx.agent?.kind === "sub") return;
 
-        const active = hasActiveRun(ctx.cwd);
-        if (!active) return;
-
-        // Gate: coordinator-edit block
+        // Protected files: ALWAYS blocked (원본 hooks Rule 1 — 활성 런 무관)
         const targetPath = typeof input.path === "string" ? input.path : typeof input.file_path === "string" ? input.file_path : "";
         if (PROTECTED_FILES.some((pf) => targetPath.endsWith(pf))) {
             return { block: true, reason: `superlite: ${targetPath.split("/").pop()} is hook-managed, not written by the model.` };
         }
+
+        const active = hasActiveRun(ctx.cwd);
+        if (!active) return;
+
+        // Active run: coordinator cannot write project code
         if (["edit", "write", "apply_patch"].includes(tool) && targetPath && !isAllowedWrite(targetPath)) {
             return { block: true, reason: `superlite: coordinator cannot write project code (${targetPath}). Use fixer agent. Allowed: docs/plans/**, SPEC*.md, .superlite/**.` };
         }
