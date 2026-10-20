@@ -77,7 +77,7 @@ function runHook(hookName: string, event: ToolCallEvent, ctx: ExtensionContext):
 function execHook(hookPath: string, event: ToolCallEvent, ctx: ExtensionContext): HookResult {
     const stdin = buildHookInput(event, ctx);
     try {
-        const stdout = execFileSync("bash", [hookPath], {
+        const stdout = execFileSync("/opt/homebrew/bin/bash", [hookPath], {
             input: stdin,
             encoding: "utf8",
             timeout: 5000,
