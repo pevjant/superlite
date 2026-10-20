@@ -19,7 +19,7 @@ const hooksDir = resolve(packageRoot, "hooks");
 // 도구명 매핑: omp lowercase → Claude Code PascalCase
 const TOOL_NAME_MAP: Record<string, string> = {
     edit: "Edit", write: "Write", apply_patch: "MultiEdit",
-    bash: "Bash", shell: "Bash",
+    bash: "Bash", shell: "Bash", task: "Task",
 };
 
 function buildHookInput(event: ToolCallEvent, ctx: ExtensionContext): string {
@@ -65,12 +65,18 @@ function runHook(hookName: string, event: ToolCallEvent, ctx: ExtensionContext):
             cwd: ctx.cwd,
         }).trim();
 
-        // rewrite-test-runs: 수정된 명령을 stdout으로 반환
+        // rewrite-test-runs: hookSpecificOutput.updatedInput 형식 (원본 :76)
         if (stdout.startsWith("{")) {
             try {
-                const parsed = JSON.parse(stdout) as { tool_input?: { command?: string } };
-                if (parsed.tool_input?.command) {
-                    return { blocked: false, modifiedCommand: parsed.tool_input.command };
+                const parsed = JSON.parse(stdout) as {
+                    hookSpecificOutput?: {
+                        hookEventName?: string;
+                        updatedInput?: { command?: string; run_in_background?: boolean };
+                    };
+                };
+                const updated = parsed.hookSpecificOutput?.updatedInput;
+                if (updated?.command) {
+                    return { blocked: false, modifiedCommand: updated.command };
                 }
             } catch { /* not JSON, treat as plain output */ }
         }
