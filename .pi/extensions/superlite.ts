@@ -34,13 +34,7 @@ function buildHookInput(event: ToolCallEvent, ctx: ExtensionContext): string {
     if (typeof input.file_path === "string") toolInput.file_path = input.file_path;
     if (typeof input.notebook_path === "string") toolInput.notebook_path = input.notebook_path;
     // omp tool-event-input.ts:73-82 — 다중 파일 edit는 paths 배열로 제공
-    if (Array.isArray(input.paths)) {
-        toolInput.paths = input.paths.filter((p): p is string => typeof p === "string");
-        // 첫 번째 경로를 file_path로도 전달 (원본 hook이 file_path를 확인)
-        if (toolInput.paths.length > 0 && !toolInput.file_path) {
-            toolInput.file_path = toolInput.paths[0];
-        }
-    }
+    // 다중 파일(paths 배열)은 각 경로마다 hook을 별도 실행해야 함
 
     // 서브에이전트면 agent_id 필드 존재 (원본 hooks가 이걸 확인)
     const isSub = ctx.agent?.kind === "sub";
@@ -65,6 +59,22 @@ function runHook(hookName: string, event: ToolCallEvent, ctx: ExtensionContext):
     const hookPath = resolve(hooksDir, hookName);
     if (!existsSync(hookPath)) return null;
 
+    // 다중 파일: 각 경로마다 hook 실행, 하나라도 차단하면 전체 차단
+    const input = event.input ?? {};
+    if (Array.isArray(input.paths) && input.paths.every((p) => typeof p === "string")) {
+        for (const p of input.paths) {
+            const singleEvent = { ...event, input: { ...input, path: p } } as ToolCallEvent;
+            const single = execHook(hookPath, singleEvent, ctx);
+            if (single?.blocked) return single;
+        }
+        return { blocked: false };
+    }
+
+    const stdin = buildHookInput(event, ctx);
+    return execHook(hookPath, event, ctx);
+}
+
+function execHook(hookPath: string, event: ToolCallEvent, ctx: ExtensionContext): HookResult {
     const stdin = buildHookInput(event, ctx);
     try {
         const stdout = execFileSync("bash", [hookPath], {
@@ -74,12 +84,10 @@ function runHook(hookName: string, event: ToolCallEvent, ctx: ExtensionContext):
             cwd: ctx.cwd,
         }).trim();
 
-        // rewrite-test-runs: hookSpecificOutput.updatedInput 형식 (원본 :76)
         if (stdout.startsWith("{")) {
             try {
                 const parsed = JSON.parse(stdout) as {
                     hookSpecificOutput?: {
-                        hookEventName?: string;
                         updatedInput?: { command?: string; run_in_background?: boolean };
                     };
                 };
@@ -87,19 +95,16 @@ function runHook(hookName: string, event: ToolCallEvent, ctx: ExtensionContext):
                 if (updated?.command) {
                     return { blocked: false, modifiedCommand: updated.command, runInBackground: updated.run_in_background === true };
                 }
-            } catch { /* not JSON, treat as plain output */ }
+            } catch { /* not JSON */ }
         }
         return { blocked: false };
     } catch (err) {
         if (err && typeof err === "object" && "status" in err) {
-            const status = (err as { status: number }).status;
-            if (status === 2) {
-                // Block: message on stderr
+            if ((err as { status: number }).status === 2) {
                 const stderr = (err as { stderr?: string }).stderr?.trim();
                 return { blocked: true, reason: stderr ?? "superlite gate" };
             }
         }
-        // Fail open (원본 hooks와 동일)
         return { blocked: false };
     }
 }
