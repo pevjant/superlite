@@ -55,14 +55,10 @@ export default function superlitePiExtension(pi: ExtensionAPI) {
 
     // ─── Gates: tool_call 차단·재작성 ────────────────────────────
     pi.on("tool_call", async (event: ToolCallEvent, ctx: ExtensionContext): Promise<ToolCallEventResult | void> => {
-        // Workers always pass — ctx.agent.kind는 omp v18.12.2 실제 계약
-        if (ctx.agent?.kind === "sub") return;
-
         const tool = event.toolName?.toLowerCase() ?? "";
         const input = event.input ?? {};
-        const active = hasActiveRun(ctx.cwd);
 
-        // Gate: unsafe kill (always active, not just during runs)
+        // Gate: unsafe kill — applies to ALL agents (workers included, 원본 hooks 계약)
         if (tool === "bash") {
             const cmd = typeof input.command === "string" ? input.command : "";
             for (const pat of UNSAFE_KILL) {
@@ -72,6 +68,10 @@ export default function superlitePiExtension(pi: ExtensionAPI) {
             }
         }
 
+        // Remaining gates are coordinator-only — workers pass through
+        if (ctx.agent?.kind === "sub") return;
+
+        const active = hasActiveRun(ctx.cwd);
         if (!active) return;
 
         // Gate: coordinator-edit block
