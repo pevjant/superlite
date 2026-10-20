@@ -50,6 +50,7 @@ interface HookResult {
     blocked: boolean;
     reason?: string;
     modifiedCommand?: string;
+    runInBackground?: boolean;
 }
 
 function runHook(hookName: string, event: ToolCallEvent, ctx: ExtensionContext): HookResult | null {
@@ -76,7 +77,7 @@ function runHook(hookName: string, event: ToolCallEvent, ctx: ExtensionContext):
                 };
                 const updated = parsed.hookSpecificOutput?.updatedInput;
                 if (updated?.command) {
-                    return { blocked: false, modifiedCommand: updated.command };
+                    return { blocked: false, modifiedCommand: updated.command, runInBackground: updated.run_in_background === true };
                 }
             } catch { /* not JSON, treat as plain output */ }
         }
@@ -122,7 +123,9 @@ export default function superlitePiExtension(pi: ExtensionAPI) {
         const rewrite = runHook("rewrite-test-runs", event, ctx);
         if (rewrite?.modifiedCommand) {
             const input = event.input ?? {};
-            return { input: { ...input, command: rewrite.modifiedCommand } };
+            const revised: Record<string, unknown> = { ...input, command: rewrite.modifiedCommand };
+            if (rewrite.runInBackground) revised.async = true; // omp bash async
+            return { input: revised };
         }
 
         // 차단도 재작성도 아니면 통과
